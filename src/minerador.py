@@ -4,7 +4,10 @@ import json
 import asyncio
 from datetime import datetime
 from playwright.async_api import async_playwright
-from notifier import notify
+try:
+    from src.notifier import notify
+except ModuleNotFoundError:
+    from notifier import notify
 
 # Configuração de busca (Pode personalizar palavras-chave ou anunciantes)
 KEYWORDS = ["lancheira blindada", "aplv", "nutricao infantil"]
