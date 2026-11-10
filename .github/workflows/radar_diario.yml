@@ -1,0 +1,45 @@
+name: Radar Diario Meta Ads
+
+on:
+  schedule:
+    # 11:30 UTC = 08:30 Horário de Brasília (Horário de ouro da Ad Library)
+    - cron: '30 11 * * *'
+  workflow_dispatch: # Permite disparar manualmente com 1 clique no GitHub
+
+permissions:
+  contents: write # Permite comitar de volta o banco de dados atualizado
+
+jobs:
+  minerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8 # Trava de segurança para nunca estourar minutos
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar Dependências
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium --with-deps
+
+      - name: Executar Mineração
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python src/minerador.py
+
+      - name: Salvar Histórico de Anúncios no Repositório
+        run: |
+          git config --global user.name "Radar Bot"
+          git config --global user.email "bot@github.com"
+          git add src/database.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: atualizar banco de criativos [skip ci]" && git push)
