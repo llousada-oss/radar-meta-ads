@@ -9,7 +9,7 @@ try:
 except ModuleNotFoundError:
     from notifier import notify
 
-# Termos de alta demanda e sazonalidade
+# Termos de alta demanda
 KEYWORDS = [
     "natal",
     "ano novo",
@@ -34,13 +34,10 @@ def save_database(data):
 
 def extract_ads_from_page(page_text: str):
     """
-    Minera todos os anúncios presentes no DOM, priorizando os mais escalados:
-    1. Duplicatas (X anúncios usam esse criativo)
-    2. Tempo ativo / longevidade
+    Minera os criativos mais escalados e com maior longevidade no leilão (até 180 dias ou mais).
+    Prioriza volume de duplicatas ativas e tempo contínuo de veiculação.
     """
     ads = []
-    
-    # Divide o texto pelos blocos de identificação da biblioteca
     raw_blocks = re.split(r"Identifica[çc][ãa]o da biblioteca:\s*", page_text, flags=re.IGNORECASE)
     
     for block in raw_blocks[1:]:
@@ -56,15 +53,15 @@ def extract_ads_from_page(page_text: str):
             else:
                 continue
 
-        # Extrai contagem de duplicatas (escala horizontal real do Facebook)
+        # Extrai escala horizontal (duplicatas)
         dup_match = re.search(r"(\d+)\s+an[úu]ncios?\s+usam", block, re.IGNORECASE)
         duplicate_count = int(dup_match.group(1)) if dup_match else 1
 
-        # Extrai datas de veiculação para medir longevidade
+        # Extrai a data de veiculação (longevidade histórica)
         date_match = re.search(r"(\d{1,2}\s+de\s+[a-zçã]+\s+de\s+\d{4})", block, re.IGNORECASE)
-        date_str = date_match.group(1) if date_match else "Ativo"
+        date_str = date_match.group(1) if date_match else "Ativo de longa data"
 
-        # Extrai o primeiro gancho (primeira frase com mais de 15 caracteres)
+        # Extrai o gancho inicial da copy
         hook = "Sem gancho identificado"
         for line in lines[1:10]:
             if len(line) > 15 and not re.search(r"(biblioteca|plataforma|ativo|inativo|patrocinado|transpar|facebook|instagram)", line, re.IGNORECASE):
@@ -75,36 +72,36 @@ def extract_ads_from_page(page_text: str):
             "ad_id": ad_id,
             "duplicate_count": duplicate_count,
             "date_str": date_str,
-            "hook": hook[:120]
+            "hook": hook[:130]
         })
 
-    # Ordena pelo critério de MAIOR ESCALA (mais duplicatas primeiro)
+    # Ranquear puramente pelos mais pesados e escalados
     ads.sort(key=lambda x: x["duplicate_count"], reverse=True)
     return ads
 
 async def scrape_keyword(page, keyword: str):
-    # URL ordenada por maior volume de impressões
+    # Sem filtros restritivos de data recente: puxa os campeões históricos com maior volume
     url = f"https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q={keyword}&sort_data[direction]=desc&sort_data[mode]=total_impressions&media_type=all"
-    print(f"[*] Minerando os maiores escalados para: {keyword}")
+    print(f"[*] Rastreando campeões de escala (até 180 dias) para: {keyword}")
 
     await page.route("**/*", lambda route: route.abort() if route.request.resource_type in ["image", "media", "font"] else route.continue_())
 
     await page.goto(url, wait_until="domcontentloaded", timeout=60000)
     await page.wait_for_timeout(4000)
 
-    # Rola profundamente 6 vezes para capturar os criativos que dominam o leilão
+    # Rolagem para carregar o histórico de anúncios consolidados
     for _ in range(6):
         await page.mouse.wheel(0, 2000)
         await page.wait_for_timeout(1200)
 
     page_text = await page.inner_text("body")
     ads = extract_ads_from_page(page_text)
-    print(f"[+] Total de criativos mapeados para '{keyword}': {len(ads)}")
+    print(f"[+] Total de criativos encontrados para '{keyword}': {len(ads)}")
     
     return ads
 
 async def main():
-    print("=== MINERADOR DE CRIATIVOS ESCALADOS & MAIS LONGEVOS ===")
+    print("=== MINERAÇÃO DE ALTA ESCALA E LONGEVIDADE (ATÉ 180 DIAS) ===")
     db = load_database()
     top_winners = []
 
@@ -119,8 +116,8 @@ async def main():
             try:
                 ads = await scrape_keyword(page, kw)
                 if ads:
-                    # Pega os 2 mais escalados de cada palavra-chave
-                    for best_ad in ads[:2]:
+                    # Captura os maiores escalados de cada palavra-chave
+                    for best_ad in ads[:3]:
                         best_ad["keyword"] = kw
                         top_winners.append(best_ad)
                         db[best_ad["ad_id"]] = best_ad
@@ -131,26 +128,25 @@ async def main():
 
     save_database(db)
 
-    # Ordena todos os vencedores pelo número de duplicatas/escala
+    # Ranquear do mais escalado para o menos escalado
     top_winners.sort(key=lambda x: x["duplicate_count"], reverse=True)
 
     if top_winners:
-        msg = f"🏆 *TOP CRIATIVOS MAIS ESCALADOS (NATAL & ANO NOVO)*\n"
-        msg += f"_Ordenados por maior volume e longevidade no leilão_\n"
-        msg += "═══════════════════\n"
+        msg = f"🏆 *OS CRIATIVOS MAIS ESCALADOS DA BIBLIOTECA*\n"
+        msg += f"_(Campeões de escala e longevidade no leilão)_\n"
+        msg += "══════════════════════\n"
         
-        # Envia os top 5 mais pesados do mercado
-        for ad in top_winners[:5]:
+        for ad in top_winners[:6]:
             msg += f"\n🔥 *Escala:* `{ad['duplicate_count']} anúncios simultâneos`\n"
-            msg += f"🗓 *Veiculação:* {ad['date_str']}\n"
-            msg += f"📌 *Nicho:* #{ad['keyword'].replace(' ', '_')}\n"
+            msg += f"🗓 *Desde:* {ad['date_str']}\n"
+            msg += f"📌 *Tema:* #{ad['keyword'].replace(' ', '_')}\n"
             msg += f"🪝 *Hook:* \"_{ad['hook']}_\"\n"
-            msg += f"🔗 [Ver Criativo Oficial](https://www.facebook.com/ads/library/?id={ad['ad_id']})\n"
-            msg += "───────────────────\n"
+            msg += f"🔗 [Acessar Criativo Oficial](https://www.facebook.com/ads/library/?id={ad['ad_id']})\n"
+            msg += "──────────────────────\n"
         
         notify(msg)
     else:
-        notify(f"ℹ️ Nenhum anúncio escalado capturado nos nichos: {', '.join(KEYWORDS)}.")
+        notify(f"ℹ️ Nenhum anúncio escalado capturado para os temas: {', '.join(KEYWORDS)}.")
 
 if __name__ == "__main__":
     asyncio.run(main())
