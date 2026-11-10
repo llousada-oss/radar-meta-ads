@@ -9,9 +9,8 @@ try:
 except ModuleNotFoundError:
     from notifier import notify
 
-# Configuração de busca (Pode personalizar palavras-chave ou anunciantes)
+# Configuração de busca
 KEYWORDS = ["lancheira blindada", "aplv", "nutricao infantil"]
-MIN_DAYS_ACTIVE = 14
 DB_PATH = "database.json"
 
 def load_database():
@@ -29,82 +28,106 @@ def save_database(data):
 
 def parse_ad_card_text(text: str):
     """Extrai informações estruturadas do texto do card da Ad Library."""
-    ad_id_match = re.search(r"Identifica[çc][ãa]o da biblioteca:\s*(\d+)", text)
+    # Procura ID (suporta acentuação ou texto puro)
+    ad_id_match = re.search(r"da biblioteca:\s*(\d+)", text, re.IGNORECASE)
+    if not ad_id_match:
+        ad_id_match = re.search(r"id=(\d+)", text, re.IGNORECASE)
     ad_id = ad_id_match.group(1) if ad_id_match else None
 
-    # Verifica duplicatas (ex: "3 anúncios usam esse criativo e esse texto")
-    duplicates_match = re.search(r"(\d+)\s+an[úu]ncios usam esse criativo", text, re.IGNORECASE)
+    # Verifica duplicatas (ex: "3 anúncios usam esse criativo...")
+    duplicates_match = re.search(r"(\d+)\s+an[uú]ncios?\s+usam", text, re.IGNORECASE)
     duplicate_count = int(duplicates_match.group(1)) if duplicates_match else 1
 
-    # Extrai datas de veiculação
-    dates_match = re.search(r"(\d+\s+de\s+[a-zA-Zç]+\s+de\s+\d{4})", text)
-    date_str = dates_match.group(1) if dates_match else "Data não identificada"
-
-    # Extrai o primeiro gancho (primeira linha ou primeiras palavras)
-    lines = [line.strip() for line in text.split("\n") if line.strip() and not line.startswith("Identifica") and not line.startswith("Plataformas") and not line.startswith("Inativo") and not line.startswith("Ativo")]
-    copy_sample = "\n".join(lines[:6]) if lines else "Sem texto disponível"
-    hook = lines[0] if lines else "Sem gancho identificado"
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    cleaned_lines = [
+        l for l in lines 
+        if not re.search(r"(biblioteca|plataforma|inativo|ativo|patrocinado|cadastrado)", l, re.IGNORECASE)
+        and len(l) > 10
+    ]
+    hook = cleaned_lines[0] if cleaned_lines else (lines[0] if lines else "Sem gancho identificado")
 
     return {
         "ad_id": ad_id,
         "duplicate_count": duplicate_count,
-        "start_date_str": date_str,
-        "hook": hook[:150],
-        "copy_sample": copy_sample[:400]
+        "hook": hook[:140],
+        "full_text": "\n".join(cleaned_lines[:4])
     }
 
 async def scrape_keyword(page, keyword: str, db: dict):
     url = f"https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q={keyword}&media_type=all"
     print(f"[*] Acessando: {url}")
 
-    # Bloqueia mídias pesadas para economizar CPU e tempo de execução
     await page.route("**/*", lambda route: route.abort() if route.request.resource_type in ["image", "media", "font"] else route.continue_())
 
     await page.goto(url, wait_until="domcontentloaded", timeout=60000)
-    await page.wait_for_timeout(3000)
+    await page.wait_for_timeout(4000)
 
-    # Rola 3 vezes para carregar os cards sob demanda
-    for _ in range(3):
+    # Rola a página para disparar o carregamento dos cards
+    for _ in range(4):
         await page.mouse.wheel(0, 1500)
         await page.wait_for_timeout(1500)
 
-    # Extrai o texto dos blocos de anúncios
-    card_elements = await page.query_selector_all("div[role='dialog'], div[class*='xh8yej3']")
-    print(f"[+] Elementos encontrados para '{keyword}': {len(card_elements)}")
+    # Coleta todo o texto da página ou dos blocos de anúncio
+    full_body_text = await page.inner_text("body")
+    print(f"[+] Tamanho do texto carregado para '{keyword}': {len(full_body_text)} caracteres")
+
+    # Extrai todos os IDs presentes na página
+    found_ids = list(set(re.findall(r"da biblioteca:\s*(\d+)", full_body_text, re.IGNORECASE)))
+    print(f"[+] IDs de anúncios detectados para '{keyword}': {len(found_ids)}")
 
     new_winners = []
-
+    
+    # Se encontrou blocos específicos
+    card_elements = await page.query_selector_all("div[class*='xh8yej3'], div[role='dialog'], div[class*='_7jyr']")
+    
     for card in card_elements:
         try:
             text = await card.inner_text()
-            if "Identificação da biblioteca:" not in text:
+            if "biblioteca:" not in text.lower():
                 continue
 
             parsed = parse_ad_card_text(text)
             ad_id = parsed["ad_id"]
-
             if not ad_id:
                 continue
 
-            # Critério de Escala: Duplicatas >= 2 ou já persistente
-            is_winner = parsed["duplicate_count"] >= 2 or "ativo" in text.lower()
-
-            if is_winner:
-                if ad_id not in db:
-                    db[ad_id] = {
-                        "keyword": keyword,
-                        "first_seen": datetime.now().isoformat(),
-                        "duplicates": parsed["duplicate_count"],
-                        "hook": parsed["hook"]
-                    }
-                    new_winners.append(parsed)
-                    print(f"[!] NOVO VENCEDOR DETECTADO: ID {ad_id} | Duplicatas: {parsed['duplicate_count']}")
-        except Exception as e:
+            if ad_id not in db:
+                db[ad_id] = {
+                    "keyword": keyword,
+                    "first_seen": datetime.now().isoformat(),
+                    "duplicates": parsed["duplicate_count"],
+                    "hook": parsed["hook"]
+                }
+                new_winners.append(parsed)
+                print(f"[!] NOVO ANÚNCIO COLETADO: ID {ad_id} | Duplicatas: {parsed['duplicate_count']}")
+        except Exception:
             continue
+
+    # Fallback: Se não pegou pelos cards mas pegou pelos IDs do body
+    if not new_winners and found_ids:
+        for fid in found_ids[:5]:
+            if fid not in db:
+                db[fid] = {
+                    "keyword": keyword,
+                    "first_seen": datetime.now().isoformat(),
+                    "duplicates": 1,
+                    "hook": f"Anúncio identificado no nicho {keyword}"
+                }
+                new_winners.append({
+                    "ad_id": fid,
+                    "duplicate_count": 1,
+                    "hook": f"Anúncio ativo em {keyword}",
+                    "full_text": ""
+                })
 
     return new_winners
 
 async def main():
+    print("=== INICIANDO RADAR META ADS ===")
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    print(f"Config Telegram: Token={'OK' if token else 'FALTANDO'} | ChatID={'OK' if chat_id else 'FALTANDO'}")
+
     db = load_database()
     winners_found = []
 
@@ -126,18 +149,20 @@ async def main():
 
     save_database(db)
 
-    # Dispara alerta se houver anúncios novos
+    # Disparo de Notificação
     if winners_found:
-        msg = f"🚨 *NOVO(S) ANÚNCIO(S) ESCALADO(S) DETECTADO(S)*\nTotal: {len(winners_found)}\n"
+        msg = f"🎯 *RADAR META ADS: NOVOS ANÚNCIOS DETECTADOS*\nTotal encontrados: {len(winners_found)}\n"
         for w in winners_found[:5]:
             msg += f"\n🆔 *ID:* `{w['ad_id']}`\n"
-            msg += f"🔥 *Escala:* {w['duplicate_count']} anúncio(s) simultâneos\n"
+            msg += f"🔥 *Escala:* {w['duplicate_count']} conjunto(s)\n"
             msg += f"🪝 *Gancho:* _{w['hook']}_\n"
-            msg += f"🔗 [Ver Anúncio Oficial](https://www.facebook.com/ads/library/?id={w['ad_id']})\n"
+            msg += f"🔗 [Ver na Biblioteca da Meta](https://www.facebook.com/ads/library/?id={w['ad_id']})\n"
             msg += "───────────────────\n"
         notify(msg)
     else:
-        print("[*] Nenhum novo criativo escalado detectado nesta execução.")
+        # Envia aviso de verificação diária caso não haja novos anúncios no dia
+        print("[*] Nenhum criativo novo para alertar. Enviando status de radar ativo.")
+        notify(f"✅ *Radar Meta Ads Ativo*\nVarredura concluída com sucesso para os nichos: {', '.join(KEYWORDS)}.\nNenhum novo criativo escalado nas últimas 24h.")
 
 if __name__ == "__main__":
     asyncio.run(main())
