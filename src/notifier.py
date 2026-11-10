@@ -6,6 +6,7 @@ def send_telegram(message: str):
     bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not bot_token or not chat_id:
+        print(f"[-] Telegram ignorado: token={bool(bot_token)}, chat_id={bool(chat_id)}")
         return False
     
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -16,10 +17,17 @@ def send_telegram(message: str):
         "disable_web_page_preview": False
     }
     try:
-        resp = requests.post(url, json=payload, timeout=10)
-        return resp.status_code == 200
+        resp = requests.post(url, json=payload, timeout=15)
+        if resp.status_code == 200:
+            return True
+        else:
+            # Fallback sem markdown caso caracteres especiais quebrem o parse do Telegram
+            print(f"[-] Telegram falhou com status {resp.status_code}: {resp.text}. Tentando sem Markdown...")
+            payload.pop("parse_mode", None)
+            resp_fallback = requests.post(url, json=payload, timeout=15)
+            return resp_fallback.status_code == 200
     except Exception as e:
-        print(f"Erro ao enviar Telegram: {e}")
+        print(f"[-] Erro ao enviar Telegram: {e}")
         return False
 
 def send_discord(message: str):
@@ -32,7 +40,7 @@ def send_discord(message: str):
         resp = requests.post(webhook_url, json=payload, timeout=10)
         return resp.status_code in (200, 204)
     except Exception as e:
-        print(f"Erro ao enviar Discord: {e}")
+        print(f"[-] Erro ao enviar Discord: {e}")
         return False
 
 def notify(message: str):
@@ -44,4 +52,4 @@ def notify(message: str):
     if sent_dc:
         print("[+] Enviado com sucesso para o Discord.")
     if not sent_tg and not sent_dc:
-        print("[-] Nenhuma integração de webhook ativa (TELEGRAM_BOT_TOKEN ou DISCORD_WEBHOOK_URL não definidos).")
+        print("[-] Nenhuma notificação foi entregue (verifique os logs acima).")
