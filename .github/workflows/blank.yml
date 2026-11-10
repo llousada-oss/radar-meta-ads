@@ -35,11 +35,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          python src/minerador.py
+          python minerador.py
 
       - name: Salvar Histórico no Repositório
         run: |
           git config --global user.name "Radar Bot"
           git config --global user.email "bot@github.com"
-          git add src/database.json
+      git add database.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: atualizar banco de criativos [skip ci]" && git push)
