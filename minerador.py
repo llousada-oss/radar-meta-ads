@@ -9,7 +9,7 @@ from notifier import notify
 # Configuração de busca (Pode personalizar palavras-chave ou anunciantes)
 KEYWORDS = ["lancheira blindada", "aplv", "nutricao infantil"]
 MIN_DAYS_ACTIVE = 14
-DB_PATH = "src/database.json"
+DB_PATH = "database.json"
 
 def load_database():
     if os.path.exists(DB_PATH):
