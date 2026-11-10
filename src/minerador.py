@@ -9,8 +9,16 @@ try:
 except ModuleNotFoundError:
     from notifier import notify
 
-# Configuração de busca
-KEYWORDS = ["lancheira blindada", "aplv", "nutricao infantil"]
+# Configuração de busca - Nichos sazonais e de alta conversão para o final de ano
+KEYWORDS = [
+    "natal",
+    "ano novo",
+    "festas",
+    "fim do ano",
+    "final de ano",
+    "lancheira blindada",
+    "aplv"
+]
 DB_PATH = "database.json"
 
 def load_database():
@@ -28,13 +36,11 @@ def save_database(data):
 
 def parse_ad_card_text(text: str):
     """Extrai informações estruturadas do texto do card da Ad Library."""
-    # Procura ID (suporta acentuação ou texto puro)
     ad_id_match = re.search(r"da biblioteca:\s*(\d+)", text, re.IGNORECASE)
     if not ad_id_match:
         ad_id_match = re.search(r"id=(\d+)", text, re.IGNORECASE)
     ad_id = ad_id_match.group(1) if ad_id_match else None
 
-    # Verifica duplicatas (ex: "3 anúncios usam esse criativo...")
     duplicates_match = re.search(r"(\d+)\s+an[uú]ncios?\s+usam", text, re.IGNORECASE)
     duplicate_count = int(duplicates_match.group(1)) if duplicates_match else 1
 
@@ -67,17 +73,13 @@ async def scrape_keyword(page, keyword: str, db: dict):
         await page.mouse.wheel(0, 1500)
         await page.wait_for_timeout(1500)
 
-    # Coleta todo o texto da página ou dos blocos de anúncio
     full_body_text = await page.inner_text("body")
-    print(f"[+] Tamanho do texto carregado para '{keyword}': {len(full_body_text)} caracteres")
+    print(f"[+] Texto carregado para '{keyword}': {len(full_body_text)} caracteres")
 
-    # Extrai todos os IDs presentes na página
     found_ids = list(set(re.findall(r"da biblioteca:\s*(\d+)", full_body_text, re.IGNORECASE)))
-    print(f"[+] IDs de anúncios detectados para '{keyword}': {len(found_ids)}")
+    print(f"[+] IDs detectados para '{keyword}': {len(found_ids)}")
 
     new_winners = []
-    
-    # Se encontrou blocos específicos
     card_elements = await page.query_selector_all("div[class*='xh8yej3'], div[role='dialog'], div[class*='_7jyr']")
     
     for card in card_elements:
@@ -103,7 +105,7 @@ async def scrape_keyword(page, keyword: str, db: dict):
         except Exception:
             continue
 
-    # Fallback: Se não pegou pelos cards mas pegou pelos IDs do body
+    # Fallback por IDs extraídos do texto
     if not new_winners and found_ids:
         for fid in found_ids[:5]:
             if fid not in db:
@@ -151,8 +153,8 @@ async def main():
 
     # Disparo de Notificação
     if winners_found:
-        msg = f"🎯 *RADAR META ADS: NOVOS ANÚNCIOS DETECTADOS*\nTotal encontrados: {len(winners_found)}\n"
-        for w in winners_found[:5]:
+        msg = f"🎄 *RADAR META ADS: ANÚNCIOS ESCALADOS ENCONTRADOS*\nTotal detectados: {len(winners_found)}\n"
+        for w in winners_found[:6]:
             msg += f"\n🆔 *ID:* `{w['ad_id']}`\n"
             msg += f"🔥 *Escala:* {w['duplicate_count']} conjunto(s)\n"
             msg += f"🪝 *Gancho:* _{w['hook']}_\n"
@@ -160,9 +162,8 @@ async def main():
             msg += "───────────────────\n"
         notify(msg)
     else:
-        # Envia aviso de verificação diária caso não haja novos anúncios no dia
         print("[*] Nenhum criativo novo para alertar. Enviando status de radar ativo.")
-        notify(f"✅ *Radar Meta Ads Ativo*\nVarredura concluída com sucesso para os nichos: {', '.join(KEYWORDS)}.\nNenhum novo criativo escalado nas últimas 24h.")
+        notify(f"✅ *Radar Meta Ads Ativo*\nVarredura concluída para os termos: {', '.join(KEYWORDS)}.\nNenhum anúncio novo escalado nas últimas 24h.")
 
 if __name__ == "__main__":
     asyncio.run(main())
