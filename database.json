@@ -89,5 +89,26 @@
     "date_str": "22 de set de 2026",
     "hook": "A real é que ninguém aguenta preencher tabela de gastos",
     "keyword": "fim do ano"
+  },
+  "1421297926883160": {
+    "ad_id": "1421297926883160",
+    "duplicate_count": 9,
+    "date_str": "21 de out de 2026",
+    "hook": "Ação da Cidadania",
+    "keyword": "natal"
+  },
+  "2271246500398396": {
+    "ad_id": "2271246500398396",
+    "duplicate_count": 5,
+    "date_str": "30 de out de 2026",
+    "hook": "Sem gancho identificado",
+    "keyword": "natal"
+  },
+  "1574716307153085": {
+    "ad_id": "1574716307153085",
+    "duplicate_count": 5,
+    "date_str": "9 de mar de 2026",
+    "hook": "Calçados 24h - Loja Fisca & Online",
+    "keyword": "festas"
   }
 }
