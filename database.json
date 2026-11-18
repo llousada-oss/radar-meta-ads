@@ -92,7 +92,7 @@
   },
   "1421297926883160": {
     "ad_id": "1421297926883160",
-    "duplicate_count": 9,
+    "duplicate_count": 12,
     "date_str": "21 de out de 2026",
     "hook": "Ação da Cidadania",
     "keyword": "natal"
@@ -124,5 +124,12 @@
     "date_str": "9 de nov de 2026",
     "hook": "Chegou a hora de reunir quem você ama, celebrar os reencontros e curtir juntos cada momento especial.",
     "keyword": "festas"
+  },
+  "1902272664542998": {
+    "ad_id": "1902272664542998",
+    "duplicate_count": 2,
+    "date_str": "5 de nov de 2026",
+    "hook": "Iza com Dell Technologies",
+    "keyword": "ano novo"
   }
 }
