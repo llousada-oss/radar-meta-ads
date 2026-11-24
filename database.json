@@ -106,7 +106,7 @@
   },
   "1574716307153085": {
     "ad_id": "1574716307153085",
-    "duplicate_count": 7,
+    "duplicate_count": 5,
     "date_str": "9 de mar de 2026",
     "hook": "Calçados 24h - Loja Fisca & Online",
     "keyword": "festas"
@@ -145,5 +145,12 @@
     "date_str": "5 de nov de 2026",
     "hook": "O melhor fim de semana para ter uma Rampage na garagem. A partir de R$ 199.990*. Aproveite a Black RAM.",
     "keyword": "final de ano"
+  },
+  "2031098994261888": {
+    "ad_id": "2031098994261888",
+    "duplicate_count": 2,
+    "date_str": "6 de nov de 2026",
+    "hook": "Celebre os encontros, afetos e histórias que tornam o Natal especial. Joias Vivara para presentear quem faz parte da sua vida.",
+    "keyword": "natal"
   }
 }
