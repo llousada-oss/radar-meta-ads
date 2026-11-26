@@ -106,7 +106,7 @@
   },
   "1574716307153085": {
     "ad_id": "1574716307153085",
-    "duplicate_count": 5,
+    "duplicate_count": 4,
     "date_str": "9 de mar de 2026",
     "hook": "Calçados 24h - Loja Fisca & Online",
     "keyword": "festas"
@@ -134,7 +134,7 @@
   },
   "1315705160624178": {
     "ad_id": "1315705160624178",
-    "duplicate_count": 2,
+    "duplicate_count": 3,
     "date_str": "30 de out de 2026",
     "hook": "Neste Natal, apaixone-se pela coleção completa de Panettones Bacio di Latte com massa artesanal de fermentação natural! 🎄✨🤎",
     "keyword": "natal"
@@ -159,5 +159,12 @@
     "date_str": "9 de ago de 2026",
     "hook": "🔥 A Black Friday da Neres começou!!! O melhor preço do ano pra você garantir as melhores maquinas do Brasil e nunca mais sofrer com cortes e",
     "keyword": "ano novo"
+  },
+  "1124700203399342": {
+    "ad_id": "1124700203399342",
+    "duplicate_count": 7,
+    "date_str": "19 de set de 2026",
+    "hook": "Durante 30 anos eu fui sedentária. Ganhei mais de 18kg na ansiedade e cheguei num ponto em que precisei decidir: continuar do mesmo jeito ou",
+    "keyword": "final de ano"
   }
 }
