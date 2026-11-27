@@ -162,9 +162,16 @@
   },
   "1124700203399342": {
     "ad_id": "1124700203399342",
-    "duplicate_count": 7,
+    "duplicate_count": 6,
     "date_str": "19 de set de 2026",
     "hook": "Durante 30 anos eu fui sedentária. Ganhei mais de 18kg na ansiedade e cheguei num ponto em que precisei decidir: continuar do mesmo jeito ou",
     "keyword": "final de ano"
+  },
+  "1135795348810069": {
+    "ad_id": "1135795348810069",
+    "duplicate_count": 2,
+    "date_str": "13 de nov de 2026",
+    "hook": "A temporada de festas começa com um toque de magia natalina.",
+    "keyword": "festas"
   }
 }
